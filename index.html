@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dominó do Boteco 🂓</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a472a;
+            color: white;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
+        #game-container {
+            width: 100%;
+            max-width: 800px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+        }
+        #mesa {
+            min-height: 200px;
+            background-color: #0f301b;
+            border: 4px dashed #2d6a4f;
+            border-radius: 10px;
+            margin: 20px 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            padding: 15px;
+            flex-wrap: wrap;
+        }
+        #painel-info {
+            display: flex;
+            justify-content: space-between;
+            background: #2d6a4f;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        #sua-mao {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+            min-height: 80px;
+            flex-wrap: wrap;
+        }
+        .pedra {
+            background: #f4f1de;
+            color: #3d348b;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            padding: 15px 10px;
+            font-weight: bold;
+            font-size: 18px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            transition: transform 0.2s;
+        }
+        .pedra:hover { transform: translateY(-5px); background: #fff; }
+        .btn {
+            background-color: #e63946;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn:hover { background-color: #d62828; }
+        #controles { display: flex; gap: 10px; justify-content: center; margin-top: 15px; }
+    </style>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+
+    <h1>Dominó do Boteco 🂓</h1>
+
+    <div id="game-container">
+        <div id="painel-info">
+            <div id="status-turno">Aguardando início...</div>
+            <div id="placar">Dupla A: 0 | Dupla B: 0</div>
+        </div>
+
+        <div id="mesa">
+            <p id="placeholder-mesa">A mesa está vazia. Comece o jogo!</p>
+        </div>
+
+        <div id="sua-mao"></div>
+
+        <div id="controles">
+            <button class="btn" onclick="adicionarRobos()">Adicionar Robôs 🤖</button>
+            <button class="btn" style="background-color: #ffb703; color: black;" onclick="passarVez()">Passar Vez 🔄</button>
+        </div>
+    </div>
+
+    <script>
+        // Conecta automaticamente com o seu back-end server.js
+        const socket = io();
+        let minhaSala = "SALA_BOTECO"; 
+
+        // Conecta na sala assim que abre a página
+        socket.emit('joinRoom', { roomId: minhaSala, playerName: "Você 🧑‍💻" });
+
+        socket.on('initRoomId', (data) => {
+            minhaSala = data.roomId;
+            console.log("Conectado na sala: " + minhaSala);
+        });
+
+        // Recebe as pedras do servidor
+        socket.on('receiveHand', (hand) => {
+            const containerMao = document.getElementById('sua-mao');
+            
