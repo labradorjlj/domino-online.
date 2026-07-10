@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dominó do Boteco 🂓</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #1a472a; color: white; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        h1 { margin-bottom: 5px; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
+        
+        /* Painel das Duplas no Topo solicitado */
+        #painel-duplas-topo { display: none; background: #143520; border: 2px solid #2d6a4f; padding: 10px 20px; border-radius: 10px; margin-bottom: 15px; text-align: center; font-size: 15px; width: 100%; max-width: 800px; box-sizing: border-box; }
+        
+        .janela-painel { background: rgba(0, 0, 0, 0.6); padding: 30px; border-radius: 15px; text-align: center; max-width: 400px; width: 100%; margin-top: 30px; box-sizing: border-box; }
+        .campo-texto { width: 90%; padding: 10px; margin: 10px 0; border-radius: 5px; border: none; font-size: 16px; }
+        #game-container { display: none; width: 100%; max-width: 800px; background: rgba(0, 0, 0, 0.3); padding: 20px; border-radius: 15px; box-sizing: border-box; }
+        #mesa { min-height: 200px; background-color: #0f301b; border: 4px dashed #2d6a4f; border-radius: 10px; margin: 20px 0; display: flex; justify-content: center; align-items: center; gap: 10px; padding: 15px; flex-wrap: wrap; }
+        #painel-info { display: flex; justify-content: space-between; background: #2d6a4f; padding: 10px 20px; border-radius: 8px; font-weight: bold; }
+        #sua-mao { display: flex; justify-content: center; gap: 10px; margin-top: 20px; min-height: 80px; flex-wrap: wrap; }
+        
+        /* Pedras em formato numérico claro */
+        .pedra { background: #f4f1de; color: #2b2d42; border: 2px solid #b5b5b5; border-radius: 6px; padding: 14px 18px; font-weight: bold; font-size: 20px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.25); transition: transform 0.15s ease; user-select: none; }
+        .pedra:hover { transform: translateY(-4px); background: #ffffff; }
+        .btn { background-color: #e63946; color: white; border: none; padding: 12px 20px; font-size: 16px; border-radius: 5px; cursor: pointer; font-weight: bold; margin: 5px; width: 100%; max-width: 250px; }
+        #controles { display: flex; gap: 10px; justify-content: center; margin-top: 15px; flex-wrap: wrap; }
+    </style>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+
+    <h1>Dominó do Boteco 🂓</h1>
+
+    <div id="painel-duplas-topo">
+        <strong>🟢 DUPLAS FORMADAS</strong><br>
+        <span id="texto-duplaA">Dupla A: ...</span> | <span id="texto-duplaB">Dupla B: ...</span>
+    </div>
+
+    <div id="tela-registro" class="janela-painel">
+        <h2>Entrar no Jogo</h2>
+        <input type="text" id="input-nick" class="campo-texto" placeholder="Seu Nome" required>
+        <input type="text" id="input-sala" class="campo-texto" placeholder="ID da Sala (Opcional)">
+        <br><br>
+        <button class="btn" onclick="conectarAoJogo()">Entrar na Mesa ➔</button>
+    </div>
+
+    <div id="tela-parceiro" class="janela-painel" style="display: none;">
+        <h2>Quem será seu Parceiro?</h2>
+        <p>A mesa completou! Vote em quem você quer como parceiro:</p>
+        <div id="lista-votos-parceiro"></div>
+        <p style="font-size: 12px; color: #aaa;" id="status-votos-parceiro">Aguardando votos (0/4)...</p>
+    </div>
+
+    <div id="tela-regra" class="janela-painel" style="display: none;">
+        <h2>Regra de Saída</h2>
+        <p>Vote em qual pedra inicia a partida:</p>
+        <button class="btn" style="background-color: #3a86ff;" onclick="votarRegra('6-6')">Bucha (6-6)</button>
+        <button class="btn" style="background-color: #ff006e;" onclick="votarRegra('1-1')">Pio (1-1)</button>
+    </div>
+
+    <div id="game-container">
+        <div id="painel-info">
+            <div id="status-turno">Aguardando...</div>
+            <div id="placar">Dupla A: 0 | Dupla B: 0</div>
+        </div>
+        <div id="mesa"><p id="placeholder-mesa">Aguardando o início do jogo...</p></div>
+        <div id="sua-mao"></div>
+        <div id="controles">
+            <button id="btn-bots" class="btn" onclick="adicionarRobos()">Adicionar Robôs 🤖</button>
+            <button class="btn" style="background-color: #ffb703; color: black; max-width: 150px;" onclick="passarVez()">Passar Vez 🔄</button>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let minhaSala = "";
+
+        function conectarAoJogo() {
+            const nick = document.getElementById('input-nick').value.trim();
+            const sala = document.getElementById('input-sala').value.trim();
+            if (!nick) return alert("Digite seu nome!");
+
+            socket.emit('joinRoom', { roomId: sala ? sala : null, playerName: nick });
+            document.getElementById('tela-registro').style.display = 'none';
+            document.getElementById('game-container').style.display = 'block';
+        }
+
+        socket.on('initRoomId', (data) => { minhaSala = data.roomId; });
+
+        socket.on('abrirEscolhaParceiro', (data) => {
+            document.getElementById('game-container').style.display = 'none';
+            document.getElementById('tela-parceiro').style.display = 'block';
+            const container = document.getElementById('lista-votos-parceiro');
+            container.innerHTML = '';
+            
+            data.outrosJogadores.forEach(jogador => {
+                const botao = document.createElement('button');
+                botao.className = 'btn';
+                botao.style.backgroundColor = '#4a4e69';
+                botao.innerText = jogador.name;
+                botao.onclick = () => {
+                    socket.emit('escolherParceiro', { roomId: minhaSala, escolheuId: Math.floor(Math.random() * 1000) === 0 ? null : jogador.id });
+                    container.innerHTML = '<p>Voto computado! Aguardando demais jogadores...</p>';
+                };
+                container.appendChild(botao);
+            });
+        });
+
+        socket.on('atualizarStatusParceiros', (data) => {
+            document.getElementById('status-votos-parceiro').innerText = `Aguardando votos (${data.votosCount}/4)...`;
+        });
+
+        socket.on('startVoting', (data) => {
+            document.getElementById('tela-parceiro').style.display = 'none';
+            document.getElementById('tela-regra').style.display = 'block';
+            exibirDuplasNoTopo(data.nomesDuplas);
+        });
+
+        function votarRegra(tipo) {
+            socket.emit('castVote', { roomId: minhaSala, vote: tipo });
+            document.getElementById('tela-regra').style.display = 'none';
+            document.getElementById('game-container').style.display = 'block';
+        }
+
+        socket.on('receiveHand', (hand) => {
+            const containerMao = document.getElementById('sua-mao');
+            containerMao.innerHTML = '';
+            hand.forEach(pedra => {
+                const elementoPedra = document.createElement('div');
+                elementoPedra.className = 'pedra';
+                elementoPedra.innerText = `[${pedra.ladoA}|${pedra.ladoB}]`;
+                elementoPedra.onclick = () => jogarPedra(pedra);
+                containerMao.appendChild(elementoPedra);
+            });
+        });
+
+        socket.on('atualizarMesa', (data) => {
+            const containerMesa = document.getElementById('mesa');
+            document.getElementById('btn-bots').style.display = 'none'; 
+            document.getElementById('placar').innerText = `Dupla A: ${data.score.duplaA} | Dupla B: ${data.score.duplaB}`;
+            document.getElementById('status-turno').innerText = `Vez de: ${data.nameTurnoAtual}`;
+
+            if(data.nomesDuplas) exibirDuplasNoTopo(data.nomesDuplas);
+
+            if (data.mesa.length === 0) {
+                containerMesa.innerHTML = '<p id="placeholder-mesa">Mesa pronta. Faça a sua jogada!</p>';
+            } else {
+                containerMesa.innerHTML = '';
+                data.mesa.forEach(p => {
+                    const el = document.createElement('div');
+                    el.className = 'pedra'; el.style.cursor = 'default';
+                    el.innerText = `[${p[0]}|${p[1]}]`;
+                    containerMesa.appendChild(el);
+                });
+            }
+        });
+
+        function exibirDuplasNoTopo(nomesDuplas) {
+            const painel = document.getElementById('painel-duplas-topo');
+            painel.style.display = 'block';
+            document.getElementById('texto-duplaA').innerText = `Dupla A: ${nomesDuplas.duplaA}`;
+            document.getElementById('texto-duplaB').innerText = `Dupla B: ${nomesDuplas.duplaB}`;
+        }
+
+        socket.on('roundEnded', (data) => alert(data.motivo));
+        socket.on('errorMsg', (msg) => { alert(msg); window.location.reload(); });
+
+        function adicionarRobos() { socket.emit('adicionarRobos', { roomId: minhaSala }); }
+        function passarVez() { socket.emit('passarVez', { roomId: minhaSala }); }
+
+        function jogarPedra(pedra) {
+            let lado = 'centro';
+            if (!document.getElementById('placeholder-mesa')) {
+                const escolha = prompt("Digite 'E' para esquerda ou 'D' para a direita:").toLowerCase();
+                lado = (escolha === 'e') ? 'esquerda' : 'direita';
+            }
+            socket.emit('jogarPedra', { roomId: minhaSala, pedra: pedra, ladoDaMesa: lado });
+        }
+    </script>
+</body>
+</html>
