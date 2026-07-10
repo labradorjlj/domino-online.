@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dominó do Boteco 🃏</title>
+    <style>
+        body {
+            background-color: #1e3d2f;
+            color: white;
+            font-family: 'Arial', sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 95%;
+            margin: 0 auto;
+        }
+        .hidden {
+            display: none !important;
+        }
+        .input-group {
+            background: #2a5240;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            max-width: 320px;
+            margin: 40px auto;
+        }
+        input, button {
+            padding: 12px;
+            border-radius: 6px;
+            border: none;
+            font-size: 16px;
+        }
+        input {
+            background: #fff;
+            color: #333;
+        }
+        button {
+            background: #ffcc00;
+            color: #1e3d2f;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        button:hover {
+            background: #e6b800;
+        }
+        .scoreboard {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background: #172f24;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .score-line {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+        .score-team {
+            color: #ffcc00;
+            font-size: 20px;
+        }
+        
+        .game-table {
+            background: #234b39;
+            border: 4px dashed #172f24;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-sizing: border-box;
+            min-height: 400px;
+        }
+        
+        .board-zone {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            padding: 20px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* 🎲 ESTILO CLASSICO DE DADO COM FUNDO MARFIM/BRANCO */
+        .domino-piece {
+            display: inline-flex;
+            background: #fdfaf2;
+            color: #111;
+            border-radius: 6px;
+            box-shadow: 2px 4px 8px rgba(0,0,0,0.4);
+            user-select: none;
+            border: 2px solid #bbb;
+            box-sizing: border-box;
+            align-items: center;
+            justify-content: space-between;
+            padding: 4px;
+        }
+
+        /* Grid interna 3x3 para posicionar os pontos */
+        .domino-half {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            width: 32px;
+            height: 32px;
+            gap: 2px;
+            box-sizing: border-box;
+            padding: 2px;
+        }
+
+        /* O pontinho preto clássico redondo */
+        .dot {
+            background-color: #111;
+            border-radius: 50%;
+            width: 6px;
+            height: 6px;
+            margin: auto;
+            display: none;
+        }
+
+        /* Mapeamento exato estilo Dado de 6 lados */
+        .val-1 .d5,
+        .val-2 .d1, .val-2 .d9,
+        .val-3 .d1, .val-3 .d5, .val-3 .d9,
+        .val-4 .d1, .val-4 .d3, .val-4 .d7, .val-4 .d9,
+        .val-5 .d1, .val-5 .d3, .val-5 .d5, .val-5 .d7, .val-5 .d9,
+        .val-6 .d1, .val-6 .d3, .val-6 .d4, .val-6 .d6, .val-6 .d7, .val-6 .d9 {
+            display: block !important;
+        }
+
+        /* Orientações e Tamanhos */
+        .piece-vertical {
+            flex-direction: column;
+            width: 44px;
+            height: 88px;
+        }
+        .line-vert {
+            width: 100%;
+            height: 2px;
+            background: #444;
+            flex: none !important;
+        }
+
+        .piece-horizontal {
+            flex-direction: row;
+            width: 88px;
+            height: 44px;
+        }
+        .line-horiz {
+            width: 2px;
+            height: 100%;
+            background: #444;
+            flex: none !important;
+        }
+
+        .hand-container {
+            background: #172f24;
+            padding: 20px;
+            border-radius: 10px;
+            min-height: 110px;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        .modal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: #2a5240;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+    </style>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Dominó do Boteco 🃏</h1>
+
+        <div id="lobby">
+            <div class="input-group">
+                <h3>Montar Mesa</h3>
+                <input type="text" id="player-name" placeholder="Seu Apelido" maxlength="12">
+                <input type="text" id="room-input-id" placeholder="Código da Sala (Opcional)" style="text-transform: uppercase;">
+                <button onclick="connectGame()">Entrar na Sala 🫵</button>
+            </div>
+            
+            <div id="lobby-info" class="hidden" style="margin-top: 20px; background: #2a5240; padding: 20px; border-radius: 8px;">
+                <p id="room-code">Gerando código...</p>
+                <button onclick="copyCode()" style="background: #00ffcc; color: #111; padding: 8px 15px; font-size: 14px; margin-bottom: 10px;">Copiar Código 📋</button>
+                <br>
+                <button id="btn-add-bots" onclick="adicionarRobos()" style="background: #3498db; color: white; padding: 10px 15px; font-size: 14px; margin-top: 10px;">Completar com Robôs 🤖</button>
+                <h3 id="player-count" style="margin-top: 20px; color: #ffcc00;">Aguardando jogadores...</h3>
+            </div>
+        </div>
+
+        <div id="game-screen" class="hidden">
+            <div class="scoreboard">
+                <div class="score-line">
+                    <div id="labels-dupla-a" style="text-align: left;">Dupla A: Aguardando...</div>
+                    <div>Placar: <span id="score-a" class="score-team">0</span></div>
+                </div>
+                <div class="score-line" style="border-top: 1px dashed rgba(255,255,255,0.2); padding-top: 8px;">
+                    <div id="labels-dupla-b" style="text-align: left;">Dupla B: Aguardando...</div>
+                    <div>Placar: <span id="score-b" class="score-team">0</span></div>
+                </div>
+            </div>
+
+            <div class="game-table">
+                <p id="mesa-status" style="margin: 0 0 15px 0; font-weight: bold; font-size: 18px; color: #00ff00;">Aguardando... ⏳</p>
+                <div id="board" class="board-zone"></div>
+            </div>
+
+            <button id="btn-passar-vez" class="hidden" onclick="pularVez()" 
+                    style="background: #e74c3c; color: white; padding: 10px 20px; border-radius: 5px; font-weight: bold; margin-bottom: 15px; border: none; cursor: pointer;">
+                Não tenho pedra (Passar Vez) 🚫
+            </button>
+
+            <h3>Suas Pedras</h3>
+            <div id="player-hand" class="hand-container"></div>
+        </div>
+    </div>
+
+    <div id="vote-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>Votação da Regra 🗳️</h2>
+            <p>Quem tiver qual bucha abre o primeiro jogo da partida?</p>
+            <p id="vote-status" style="font-weight: bold; color: #ffcc00;">Votos: 0/4</p>
+            <div class="modal-buttons">
+                <button onclick="enviarVoto('6-6')" style="background: #fff; color: #111;">Bucha de Sena (6-6)</button>
+                <button onclick="enviarVoto('1-1')" style="background: #fff; color: #111;">Bucha de Pio (1-1)</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
