@@ -1,0 +1,17 @@
+{
+"name": "domino-cetens",
+"version": "1.0.0",
+"description": "Jogo de Dominó Cetens Multiplayer com WebSockets e Autenticação",
+"main": "server.js",
+"scripts": {
+"start": "node server.js"
+},
+"dependencies": {
+"express": "^4.18.2",
+"nodemailer": "^6.9.9",
+"socket.io": "^4.7.2"
+},
+"engines": {
+"node": ">=18.0.0"
+}
+}
