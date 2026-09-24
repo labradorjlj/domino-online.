@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dominó Cetens 🂓 | Jogo de Dominó Online</title>
+    
+    <!-- Carregamento do Socket.io -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: #0b2214;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 12px;
+            padding-bottom: 70px; /* Espaço para o rodapé */
+            overflow-x: hidden;
+        }
+
+        h1 {
+            color: #ffb703;
+            text-align: center;
+            font-size: 24px;
+            margin: 10px 0 15px 0;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        /* Notificação Toast */
+        #toast-notificacao {
+            position: fixed;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #333;
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 25px;
+            font-size: 14px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            z-index: 9999;
+            display: none;
+            text-align: center;
+            max-width: 90%;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translate(-50%, -10px); }
+            to { opacity: 1; transform: translate(-50%, 0); }
+        }
+
+        /* Painel topo duplas */
+        #painel-duplas-topo {
+            background-color: rgba(16, 46, 27, 0.9);
+            border: 1px solid #2d6a4f;
+            border-radius: 8px;
+            padding: 8px 15px;
+            margin-bottom: 15px;
+            text-align: center;
+            font-size: 13px;
+            width: 100%;
+            max-width: 480px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        /* Cartão e Janelas de Painel */
+        .janela-painel {
+            background-color: #143d27;
+            border: 1px solid #2d6a4f;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+            width: 100%;
+            max-width: 440px;
+            margin: 0 auto 15px auto;
+            text-align: center;
+        }
+
+        /* Abas de Autenticação */
+        .abas-auth {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #2d6a4f;
+            padding-bottom: 10px;
+        }
+
+        .aba-btn {
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 5px 12px;
+            border-radius: 5px;
+            transition: all 0.2s;
+        }
+
+        .aba-btn.ativa {
+            color: #ffb703;
+            background-color: #1a472a;
+        }
+
+        .campo-texto {
+            width: 100%;
+            padding: 12px;
+            margin: 6px 0;
+            border-radius: 8px;
+            border: 1px solid #2d6a4f;
+            background-color: #081c15;
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .campo-texto:focus {
+            border-color: #ffb703;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            margin-top: 8px;
+            border-radius: 8px;
+            border: none;
+            font-weight: bold;
+            font-size: 14px;
+            color: white;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .status-socket {
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            display: inline-block;
+        }
+
+        .status-conectado { background-color: #1f7a46; color: #fff; }
+        .status-desconectado { background-color: #d90429; color: #fff; }
+
+        .link-ajuda {
+            color: #ffb703;
+            font-size: 12px;
+            cursor: pointer;
+            text-decoration: underline;
+            margin-top: 8px;
+            display: inline-block;
+        }
+
+        .card-perfil {
+            background-color: #081c15;
+            border: 1px solid #2d6a4f;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 15px;
+        }
+
+        /* Regras / Votação e Escolha de Parceiro */
+        .lista-jogadores-parceiros {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin: 15px 0;
+        }
+
+        .btn-parceiro {
+            background-color: #1a472a;
+            border: 1px solid #2d6a4f;
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            text-align: left;
+        }
+
+        .btn-parceiro:hover {
+            background-color: #2d6a4f;
+        }
+
+        #game-container {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* Barra de status da mesa */
+        .barra-status-jogo {
+            background-color: #143d27;
+            border: 1px solid #2d6a4f;
+            border-radius: 10px;
+            width: 100%;
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+        }
+
+        .cronometro {
+            background-color: #d90429;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: bold;
+        }
+
+        /* Controles do Zoom e Ações */
+        .painel-controles-jogo {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .btn-acao {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: none;
+            font-weight: bold;
+            font-size: 12px;
+            cursor: pointer;
+            color: white;
+        }
+
+        /* Area da Mesa */
+        #area-mesa-viewport {
+            width: 100%;
+            height: 320px;
+            background-color: #0d2b1a;
+            border: 2px solid #2d6a4f;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+        }
+
+        #mesa-domino {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(1);
+            transform-origin: center center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            padding: 20px;
+            transition: transform 0.2s ease-out;
+        }
+
+        /* Mão do jogador */
+        #area-mao-jogador {
+            width: 100%;
+            background-color: #143d27;
+            border: 1px solid #2d6a4f;
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .container-pedras {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+            min-height: 70px;
+        }
+
+        /* Pedras de Dominó */
+        .pedra-domino {
+            width: 36px;
+            height: 68px;
+            background-color: #fcfbf7;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+            display: flex;
+            flex-direction: column;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.15s, border-color 0.15s;
+        }
+
+        .pedra-domino.selecionada {
+            transform: translateY(-8px);
+            border: 2px solid #ffb703;
+            box-shadow: 0 6px 12px rgba(255,183,3,0.5);
+        }
+
+        .pedra-domino.deitada {
+            width: 68px;
+            height: 36px;
+            flex-direction: row;
+        }
+
+        .metade-pedra {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 16px;
+            color: #111;
+            position: relative;
+        }
+
+        .divisor-pedra {
+            background-color: #888;
+        }
+
+        .pedra-domino:not(.deitada) .divisor-pedra { height: 1px; width: 85%; align-self: center; }
+        .pedra-domino.deitada .divisor-pedra { width: 1px; height: 85%; align-self: center; }
+
+        /* Modal do Placar */
+        #modal-placar {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0,0,0,0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            padding: 15px;
+        }
+
+        .conteudo-modal-placar {
+            background-color: #143d27;
+            border: 2px solid #ffb703;
+            border-radius: 12px;
+            padding: 15px;
+            max-width: 450px;
+            width: 100%;
+            text-align: center;
+        }
+
+        #canvas-placar {
+            width: 100%;
+            max-width: 400px;
+            height: auto;
+            border-radius: 8px;
+            margin: 10px 0;
+            background-color: #0d2b1a;
+        }
+
+        /* Rodapé Fixo Próximo e Elegante */
+        footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: #081c15;
+            border-top: 1px solid #2d6a4f;
+            padding: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .btn-instagram {
+            background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+            color: white;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 13px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Toast de Notificação -->
+    <div id="toast-notificacao"></div>
+
+    <h1>Dominó Cetens 🂓</h1>
+
+    <!-- Painel de Duplas no Topo -->
+    <div id="painel-duplas-topo" style="display: none;">
+        <strong>🟢 TIMES EM CAMPO</strong><br>
+        <span id="texto-duplaA">Casa: ...</span> | <span id="texto-duplaB">Visitante: ...</span>
+    </div>
+
+    <div id="tela-registro" class="janela-painel">
+        <div id="indicador-conexao" class="status-socket status-desconectado">🔴 Conectando ao Servidor...</div>
+
+        <!-- Formulários de Usuário Não Autenticado -->
+        <div id="secao-nao-autenticado">
+            <div class="abas-auth">
+                <button id="aba-login" class="aba-btn ativa" onclick="trocarAbaAuth('login')">Entrar</button>
+                <button id="aba-cadastro" class="aba-btn" onclick="trocarAbaAuth('cadastro')">Criar Conta</button>
+            </div>
+
+            <!-- Login -->
+            <form id="form-login" onsubmit="fazerLogin(event)">
+                <input type="text" id="login-usuario" class="campo-texto" placeholder="Usuário ou E-mail" required>
+                <input type="password" id="login-senha" class="campo-texto" placeholder="Sua Senha" required>
+                <button type="submit" id="btn-login-submit" class="btn" style="background-color: #2d6a4f;">🔑 Entrar na Conta</button>
+                <span class="link-ajuda" onclick="trocarAbaAuth('recuperar')">Esqueceu a senha?</span>
+            </form>
+
+            <!-- Cadastro -->
+            <form id="form-cadastro" onsubmit="fazerCadastro(event)" style="display: none;">
+                <input type="text" id="cad-usuario" class="campo-texto" placeholder="Apelido / Usuário" required>
+                <input type="email" id="cad-email" class="campo-texto" placeholder="E-mail Válido" required>
+                <input type="password" id="cad-senha" class="campo-texto" placeholder="Senha (mín. 4 dígitos)" required>
+                <button type="submit" id="btn-cad-submit" class="btn" style="background-color: #3a86ff;">✨ Criar Conta</button>
+            </form>
+
+            <!-- Recuperação de Senha -->
+            <div id="form-recuperar" style="display: none;">
+                <h3 style="font-size: 15px; margin-bottom: 8px;">Recuperar Senha</h3>
+                <div id="passo-1-recuperacao">
+                    <input type="email" id="rec-email" class="campo-texto" placeholder="E-mail Cadastrado">
+                    <button class="btn" style="background-color: #ff006e;" onclick="solicitarCodigoRecuperacao()">📩 Enviar Código por E-mail</button>
+                </div>
+                <div id="passo-2-recuperacao" style="display: none;">
+                    <p style="font-size: 12px; color: #ffb703; margin: 6px 0;">Insira o código de 6 dígitos recebido por e-mail:</p>
+                    <input type="text" id="rec-codigo" class="campo-texto" placeholder="Código (ex: 123456)">
+                    <input type="password" id="rec-nova-senha" class="campo-texto" placeholder="Nova Senha">
+                    <button class="btn" style="background-color: #2a9d8f;" onclick="redefinirSenha()">🔒 Alterar Senha</button>
+                </div>
+                <span class="link-ajuda" onclick="trocarAbaAuth('login')">⬅ Voltar para Login</span>
+            </div>
+
+            <hr style="border: 0; border-top: 1px solid #2d6a4f; margin: 15px 0;">
+
+            <!-- Opção de Jogar como Visitante -->
+            <div id="secao-visitante">
+                <p style="font-size: 13px; color: #ffb703; font-weight: bold; margin-bottom: 6px;">⚡ Entrar sem Cadastrar (Visitante)</p>
+                <input type="text" id="input-nick-visitante" class="campo-texto" placeholder="Seu Apelido (Opcional)">
+                <input type="text" id="input-sala-visitante" class="campo-texto" placeholder="ID da Sala (Opcional)">
+                <button id="btn-solo-vis" class="btn" style="background-color: #7209b7;" onclick="conectarComoVisitante(true)">🤖 Jogar Solo vs Robôs</button>
+                <button id="btn-multi-vis" class="btn" style="background-color: #2d6a4f;" onclick="conectarComoVisitante(false)">👥 Entrar em Sala Multiplayer ➔</button>
+            </div>
+        </div>
+
+        <!-- Usuário Autenticado Logado -->
+        <div id="secao-autenticado" style="display: none;">
+            <div class="card-perfil">
+                <span style="font-size: 20px;">👤</span>
+                <h3 id="nome-usuario-logado" style="color: #ffb703; margin: 4px 0;">-</h3>
+                <span style="font-size: 11px; color: #aaa;" id="email-usuario-logado">-</span>
+            </div>
+            
+            <input type="text" id="input-sala" class="campo-texto" placeholder="ID da Sala (Opcional)">
+            <button id="btn-solo-auth" class="btn" style="background-color: #7209b7;" onclick="conectarAoJogo(true)">🤖 Jogar Solo vs Robôs</button>
+            <button id="btn-multi-auth" class="btn" style="background-color: #2d6a4f;" onclick="conectarAoJogo(false)">👥 Entrar em Sala Multiplayer ➔</button>
+            <button class="btn" style="background-color: #4a5568; margin-top: 10px;" onclick="fazerLogout()">🚪 Sair da Conta</button>
+        </div>
+    </div>
+
+    <!-- Tela de Escolha de Parceiro -->
+    <div id="tela-parceiro" class="janela-painel" style="display: none;">
+        <h3>🤝 Escolha seu Parceiro</h3>
+        <p style="font-size: 12px; color: #aaa; margin: 8px 0;">Quem escolher você de volta formará a dupla Casa!</p>
+        <div id="lista-parceiros-container" class="lista-jogadores-parceiros"></div>
+        <p style="font-size: 11px; color: #ffb703;" id="status-votos-parceiro">Aguardando escolhas dos jogadores...</p>
+    </div>
+
+    <!-- Tela de Votação de Regra -->
+    <div id="tela-regra" class="janela-painel" style="display: none;">
+        <h3>🎲 Votação de Regra de Saída</h3>
+        <p style="font-size: 12px; color: #aaa; margin: 8px 0;">Qual pedra iniciará a partida?</p>
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+            <button class="btn" style="background-color: #2a9d8f;" onclick="votarRegra('6-6')">Sena (6-6)</button>
+            <button class="btn" style="background-color: #e76f51;" onclick="votarRegra('1-1')">Pio (1-1)</button>
+        </div>
+    </div>
+
+    <!-- Game Container (Mesa e Mão do Jogador) -->
+    <div id="game-container" style="display: none;">
+        <div class="barra-status-jogo">
+            <div>
+                <strong>Vez de:</strong> <span id="nome-vez-jogador" style="color: #ffb703;">-</span>
+            </div>
+            <div>
+                <strong>Placar:</strong> <span id="placar-jogo">Casa 0 x 0 Visitante</span>
+            </div>
+            <div class="cronometro" id="cronometro-tempo">⏱ 40s</div>
+        </div>
+
+        <div class="painel-controles-jogo">
+            <button class="btn-acao" style="background-color: #3a86ff;" onclick="ajustarZoom(0.15)">🔍 Zoom +</button>
+            <button class="btn-acao" style="background-color: #3a86ff;" onclick="ajustarZoom(-0.15)">🔍 Zoom -</button>
+            <button class="btn-acao" style="background-color: #6c757d;" onclick="centralizarMesa()">🎯 Centralizar</button>
+            <button class="btn-acao" style="background-color: #2a9d8f;" onclick="jogarPedra('esquerda')">⬅ Jogar na Esquerda</button>
+            <button class="btn-acao" style="background-color: #2a9d8f;" onclick="jogarPedra('direita')">Jogar na Direita ➔</button>
+            <button class="btn-acao" style="background-color: #e76f51;" onclick="passarVez()">⏭ Passar Vez</button>
+            <button class="btn-acao" style="background-color: #7209b7;" onclick="completarComRobos()">🤖 Add Robôs</button>
+            <button class="btn-acao" style="background-color: #ff006e;" onclick="abrirModalPlacar()">📸 Compartilhar Placar</button>
+        </div>
+
+        <!-- Mesa principal onde as pedras são dispostas -->
+        <div id="area-mesa-viewport">
+            <div id="mesa-domino"></div>
+        </div>
+
+        <!-- Mão de pedras do jogador -->
+        <div id="area-mao-jogador">
+            <span style="font-size: 13px; font-weight: bold; color: #ffb703;">Sua Mão de Pedras:</span>
+            <div id="container-mao" class="container-pedras"></div>
+        </div>
+    </div>
+
+    <!-- Modal do Placar e Compartilhamento -->
+    <div id="modal-placar" style="display: none;">
+        <div class="conteudo-modal-placar">
+            <h3 style="color: #ffb703; margin-bottom: 10px;">🏆 Placar Dominó Cetens</h3>
+            <canvas id="canvas-placar" width="500" height="400"></canvas>
+            <div style="display: flex; gap: 8px; margin-top: 10px;">
+                <button class="btn" style="background-color: #2d6a4f;" onclick="compartilharOuBaixarPlacar()">📲 Compartilhar / Baixar</button>
+                <button class="btn" style="background-color: #6c757d;" onclick="fecharModalPlacar()">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rodapé Fixo com Botão do Instagram -->
+    <footer>
+        <a href="https://www.instagram.com/dominolab_?stkn=MXF5OTZrbDNrcTIyZw==" target="_blank" class="btn-instagram">
+            📸 Siga no Instagram @dominolab_
+        </a>
+    </footer>
+
+    <script>
+        // Inicialização do cliente Socket.io
+        const socket = (typeof io !== 'undefined') ? io() : null;
+        let minhaSala = "";
+        let nivelZoom = 1.0;
+        let pedraSelecionadaLocal = null;
+        let mesaVaziaGlobal = true;
+        let pontasAtuais = [-1, -1];
+        let idJogadorDaVez = null;
+        let usuarioAutenticado = null;
+
+        let dadosPlacar = {
+            score: { duplaA: 0, duplaB: 0 },
+            duplaA: 'Casa',
+            duplaB: 'Visitante',
+            jogadores: []
+        };
+
+        // Evento de carregamento inicial
+        window.addEventListener('DOMContentLoaded', () => {
+            ocultarTodasTelasIniciais();
+
+            // Restaurar dados do usuário salvo no navegador
+            const usuarioSalvo = localStorage.getItem('domino_usuario');
+            if (usuarioSalvo) {
+                try {
+                    usuarioAutenticado = JSON.parse(usuarioSalvo);
+                    atualizarUIAutenticacao();
+                } catch(e) { localStorage.removeItem('domino_usuario'); }
+            }
+
+            if (socket) {
+                socket.on('connect', () => {
+                    const el = document.getElementById('indicador-conexao');
+                    if (el) {
+                        el.className = 'status-socket status-conectado';
+                        el.innerText = '🟢 Conectado ao Servidor';
+                    }
+                });
+
+                socket.on('disconnect', () => {
+                    const el = document.getElementById('indicador-conexao');
+                    if (el) {
+                        el.className = 'status-socket status-desconectado';
+                        el.innerText = '🔴 Desconectado do Servidor';
+                    }
+                });
+
+                socket.on('initRoomId', (data) => {
+                    minhaSala = data.roomId;
+                    mostrarNotificacao(`Entrou na Sala: ${minhaSala}`, "sucesso");
+                });
+
+                socket.on('roomUpdated', (data) => {
+                    if (data.gameState === 'lobby') {
+                        mostrarNotificacao(`Aguardando jogadores... (${data.count}/4 em campo)`, "info");
+                    }
+                });
+
+                socket.on('abrirEscolhaParceiro', (data) => {
+                    ocultarTodasTelasIniciais();
+                    document.getElementById('tela-parceiro').style.display = 'block';
+                    const container = document.getElementById('lista-parceiros-container');
+                    container.innerHTML = '';
+
+                    data.outrosJogadores.forEach(j => {
+                        const btn = document.createElement('button');
+                        btn.className = 'btn-parceiro';
+                        btn.innerText = `🤝 Formar dupla com: ${j.name}`;
+                        btn.onclick = () => {
+                            socket.emit('escolherParceiro', { escolheuId: j.id });
+                            container.innerHTML = '<p style="color: #ffb703; font-size: 13px;">Voto gravado! Aguardando os demais...</p>';
+                        };
+                        container.appendChild(btn);
+                    });
+                });
+
+                socket.on('atualizarStatusParceiros', (data) => {
+                    const el = document.getElementById('status-votos-parceiro');
+                    if (el) el.innerText = `Votos de parceiro confirmados: ${data.votosCount}/4`;
+                });
+
+                socket.on('startVoting', (data) => {
+                    ocultarTodasTelasIniciais();
+                    document.getElementById('tela-regra').style.display = 'block';
+                    document.getElementById('painel-duplas-topo').style.display = 'block';
+                    
+                    if (data.nomesDuplas) {
+                        document.getElementById('texto-duplaA').innerText = `Casa: ${data.nomesDuplas.duplaA}`;
+                        document.getElementById('texto-duplaB').innerText = `Visitante: ${data.nomesDuplas.duplaB}`;
+                        dadosPlacar.duplaA = data.nomesDuplas.duplaA;
+                        dadosPlacar.duplaB = data.nomesDuplas.duplaB;
+                    }
+                });
+
+                socket.on('receiveHand', (hand) => {
+                    ocultarTodasTelasIniciais();
+                    document.getElementById('game-container').style.display = 'flex';
+                    renderizarMao(hand);
+                });
+
+                socket.on('atualizarMesa', (data) => {
+                    ocultarTodasTelasIniciais();
+                    document.getElementById('game-container').style.display = 'flex';
+                    document.getElementById('painel-duplas-topo').style.display = 'block';
+
+                    mesaVaziaGlobal = data.mesa.length === 0;
+                    pontasAtuais = data.pontas;
+                    idJogadorDaVez = data.proximoTurno;
+
+                    document.getElementById('nome-vez-jogador').innerText = data.nameTurnoAtual || '-';
+                    document.getElementById('placar-jogo').innerText = `Casa ${data.score.duplaA} x ${data.score.duplaB} Visitante`;
+                    
+                    dadosPlacar.score = data.score;
+                    if (data.jogadores) dadosPlacar.jogadores = data.jogadores;
+
+                    renderizarMesa(data.mesa);
+                });
+
+                socket.on('timerUpdate', (data) => {
+                    const el = document.getElementById('cronometro-tempo');
+                    if (el) el.innerText = `⏱ ${data.tempo}s`;
+                });
+
+                socket.on('roundEnded', (data) => {
+                    mostrarNotificacao(`Fim de rodada: ${data.motivo}`, "sucesso");
+                    if (data.score) {
+                        document.getElementById('placar-jogo').innerText = `Casa ${data.score.duplaA} x ${data.score.duplaB} Visitante`;
+                        dadosPlacar.score = data.score;
+                    }
+                });
+
+                socket.on('errorMsg', (msg) => {
+                    mostrarNotificacao(msg, "erro");
+                });
+            }
+        });
+
+        function ocultarTodasTelasIniciais() {
+            document.getElementById('tela-registro').style.display = 'none';
+            document.getElementById('tela-parceiro').style.display = 'none';
+            document.getElementById('tela-regra').style.display = 'none';
+            document.getElementById('game-container').style.display = 'none';
+            document.getElementById('modal-placar').style.display = 'none';
+            document.getElementById('painel-duplas-topo').style.display = 'none';
+        }
+
+        function mostrarNotificacao(msg, tipo = "info") {
+            const toast = document.getElementById('toast-notificacao');
+            toast.innerText = msg;
+            toast.style.backgroundColor = tipo === "erro" ? "#d90429" : (tipo === "sucesso" ? "#1f7a46" : "#333");
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 3500);
+        }
+
+        function trocarAbaAuth(aba) {
+            document.getElementById('form-login').style.display = aba === 'login' ? 'block' : 'none';
+            document.getElementById('form-cadastro').style.display = aba === 'cadastro' ? 'block' : 'none';
+            document.getElementById('form-recuperar').style.display = aba === 'recuperar' ? 'block' : 'none';
+
+            document.getElementById('aba-login').className = `aba-btn ${aba === 'login' ? 'ativa' : ''}`;
+            document.getElementById('aba-cadastro').className = `aba-btn ${aba === 'cadastro' ? 'ativa' : ''}`;
+        }
+
+        function atualizarUIAutenticacao() {
+            if (usuarioAutenticado) {
+                document.getElementById('secao-nao-autenticado').style.display = 'none';
+                document.getElementById('secao-autenticado').style.display = 'block';
+                document.getElementById('nome-usuario-logado').innerText = usuarioAutenticado.username;
+                document.getElementById('email-usuario-logado').innerText = usuarioAutenticado.email;
+            } else {
+                document.getElementById('secao-nao-autenticado').style.display = 'block';
+                document.getElementById('secao-autenticado').style.display = 'none';
+            }
+        }
+
+        async function fazerLogin(e) {
+            e.preventDefault();
+            const login = document.getElementById('login-usuario').value.trim();
+            const password = document.getElementById('login-senha').value.trim();
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ login, password })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    usuarioAutenticado = data.user;
+                    localStorage.setItem('domino_usuario', JSON.stringify(usuarioAutenticado));
+                    atualizarUIAutenticacao();
+                    mostrarNotificacao("Login efetuado com sucesso!", "sucesso");
+                } else {
+                    mostrarNotificacao(data.error || "Erro ao efetuar login", "erro");
+                }
+            } catch(err) {
+                mostrarNotificacao("Falha na comunicação com o servidor", "erro");
+            }
+        }
+
+        async function fazerCadastro(e) {
+            e.preventDefault();
+            const username = document.getElementById('cad-usuario').value.trim();
+            const email = document.getElementById('cad-email').value.trim();
+            const password = document.getElementById('cad-senha').value.trim();
+
+            try {
+                const res = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, email, password })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    usuarioAutenticado = data.user;
+                    localStorage.setItem('domino_usuario', JSON.stringify(usuarioAutenticado));
+                    atualizarUIAutenticacao();
+                    mostrarNotificacao("Conta registrada com sucesso!", "sucesso");
+                } else {
+                    mostrarNotificacao(data.error || "Erro ao criar conta", "erro");
+                }
+            } catch(err) {
+                mostrarNotificacao("Falha ao registrar conta", "erro");
+            }
+        }
+
+        async function solicitarCodigoRecuperacao() {
+            const email = document.getElementById('rec-email').value.trim();
+            if (!email) return mostrarNotificacao("Digite o e-mail cadastrado", "erro");
+
+            try {
+                const res = await fetch('/api/forgot-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('passo-1-recuperacao').style.display = 'none';
+                    document.getElementById('passo-2-recuperacao').style.display = 'block';
+                    mostrarNotificacao("Código enviado para o seu e-mail!", "sucesso");
+                } else {
+                    mostrarNotificacao(data.error || "Erro ao enviar código", "erro");
+                }
+            } catch(err) {
+                mostrarNotificacao("Erro ao conectar ao servidor", "erro");
+            }
+        }
+
+        async function redefinirSenha() {
+            const email = document.getElementById('rec-email').value.trim();
+            const code = document.getElementById('rec-codigo').value.trim();
+            const newPassword = document.getElementById('rec-nova-senha').value.trim();
+
+            try {
+                const res = await fetch('/api/reset-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, code, newPassword })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    mostrarNotificacao("Senha alterada com sucesso!", "sucesso");
+                    trocarAbaAuth('login');
+                } else {
+                    mostrarNotificacao(data.error || "Erro ao alterar senha", "erro");
+                }
+            } catch(err) {
+                mostrarNotificacao("Falha na redefinição", "erro");
+            }
+        }
+
+        function fazerLogout() {
+            localStorage.removeItem('domino_usuario');
+            usuarioAutenticado = null;
+            atualizarUIAutenticacao();
+            mostrarNotificacao("Sessão encerrada", "info");
+        }
+
+        function conectarComoVisitante(modoSolo) {
+            const nick = document.getElementById('input-nick-visitante').value.trim() || 'Visitante';
+            const sala = document.getElementById('input-sala-visitante').value.trim();
+            iniciarConexaoJogo(nick, sala, modoSolo);
+        }
+
+        function conectarAoJogo(modoSolo) {
+            const nick = usuarioAutenticado ? usuarioAutenticado.username : 'Jogador';
+            const sala = document.getElementById('input-sala').value.trim();
+            iniciarConexaoJogo(nick, sala, modoSolo);
+        }
+
+        function iniciarConexaoJogo(playerName, roomId, modoSolo) {
+            if (!socket || !socket.connected) {
+                return mostrarNotificacao("Conectando ao servidor... Tente em instantes.", "erro");
+            }
+            socket.emit('joinRoom', { roomId, playerName, modoSolo });
+        }
+
+        function votarRegra(regra) {
+            if (socket) socket.emit('castVote', { vote: regra });
+            document.getElementById('tela-regra').style.display = 'none';
+        }
+
+        function selecionarPedra(div, pedra) {
+            document.querySelectorAll('.pedra-domino').forEach(p => p.classList.remove('selecionada'));
+            div.classList.add('selecionada');
+            pedraSelecionadaLocal = pedra;
+        }
+
+        function jogarPedra(lado) {
+            if (!pedraSelecionadaLocal) return mostrarNotificacao("Clique em uma pedra da sua mão primeiro!", "erro");
+            if (socket) socket.emit('jogarPedra', { pedra: pedraSelecionadaLocal, lado });
+            pedraSelecionadaLocal = null;
+        }
+
+        function passarVez() {
+            if (socket) socket.emit('passarVez');
+        }
+
+        function completarComRobos() {
+            if (socket) socket.emit('adicionarRobos');
+        }
+
+        function ajustarZoom(delta) {
+            nivelZoom = Math.max(0.4, Math.min(2.0, nivelZoom + delta));
+            document.getElementById('mesa-domino').style.transform = `translate(-50%, -50%) scale(${nivelZoom})`;
+        }
+
+        function centralizarMesa() {
+            nivelZoom = 1.0;
+            document.getElementById('mesa-domino').style.transform = `translate(-50%, -50%) scale(1)`;
+        }
+
+        function renderizarMao(hand) {
+            const container = document.getElementById('container-mao');
+            container.innerHTML = '';
+            hand.forEach(pedra => {
+                const div = document.createElement('div');
+                div.className = 'pedra-domino';
+                div.onclick = () => selecionarPedra(div, pedra);
+
+                div.innerHTML = `
+                    <div class="metade-pedra">${pedra.ladoA}</div>
+                    <div class="divisor-pedra"></div>
+                    <div class="metade-pedra">${pedra.ladoB}</div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function renderizarMesa(mesa) {
+            const elMesa = document.getElementById('mesa-domino');
+            elMesa.innerHTML = '';
+
+            mesa.forEach(item => {
+                const [ladoA, ladoB] = item.pedra;
+                const div = document.createElement('div');
+                const eDupla = ladoA === ladoB;
+
+                div.className = `pedra-domino ${!eDupla ? 'deitada' : ''}`;
+                div.innerHTML = `
+                    <div class="metade-pedra">${ladoA}</div>
+                    <div class="divisor-pedra"></div>
+                    <div class="metade-pedra">${ladoB}</div>
+                `;
+                elMesa.appendChild(div);
+            });
+        }
+
+        function abrirModalPlacar() {
+            document.getElementById('modal-placar').style.display = 'flex';
+            gerarImagemPlacar();
+        }
+
+        function fecharModalPlacar() {
+            document.getElementById('modal-placar').style.display = 'none';
+        }
+
+        function gerarImagemPlacar() {
+            const canvas = document.getElementById('canvas-placar');
+            const ctx = canvas.getContext('2d');
+
+            // Fundo
+            ctx.fillStyle = '#0a2416';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Borda elegante
+            ctx.strokeStyle = '#ffb703';
+            ctx.lineWidth = 6;
+            ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+
+            // Título
+            ctx.fillStyle = '#ffb703';
+            ctx.font = 'bold 26px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Dominó Cetens 🂓', canvas.width / 2, 45);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '14px Arial';
+            ctx.fillText('RESULTADO DA PARTIDA', canvas.width / 2, 70);
+
+            // Time Casa
+            ctx.fillStyle = '#143d27';
+            ctx.fillRect(30, 90, 200, 180);
+            ctx.strokeStyle = '#2d6a4f';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(30, 90, 200, 180);
+
+            ctx.fillStyle = '#ffb703';
+            ctx.font = 'bold 18px Arial';
+            ctx.fillText('CASA', 130, 120);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 48px Arial';
+            ctx.fillText(dadosPlacar.score.duplaA, 130, 180);
+
+            // Time Visitante
+            ctx.fillStyle = '#143d27';
+            ctx.fillRect(270, 90, 200, 180);
+            ctx.strokeRect(270, 90, 200, 180);
+
+            ctx.fillStyle = '#ffb703';
+            ctx.font = 'bold 18px Arial';
+            ctx.fillText('VISITANTE', 370, 120);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 48px Arial';
+            ctx.fillText(dadosPlacar.score.duplaB, 370, 180);
+
+            // Nomes dos 4 Jogadores
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 14px Arial';
+            ctx.fillText('EQUIPES EM CAMPO:', canvas.width / 2, 305);
+
+            ctx.font = '12px Arial';
+            ctx.fillStyle = '#aaa';
+
+            let jA = dadosPlacar.jogadores.filter(p => p.dupla === 'A').map(p => p.name).join(' e ') || 'Casa';
+            let jB = dadosPlacar.jogadores.filter(p => p.dupla === 'B').map(p => p.name).join(' e ') || 'Visitante';
+
+            ctx.fillText(`Casa: ${jA}`, canvas.width / 2, 330);
+            ctx.fillText(`Visitante: ${jB}`, canvas.width / 2, 350);
+
+            // Rodapé do Instagram
+            ctx.fillStyle = '#ffb703';
+            ctx.font = 'bold 13px Arial';
+            ctx.fillText('📸 Siga no Instagram: @dominolab_', canvas.width / 2, 380);
+        }
+
+        async function compartilharOuBaixarPlacar() {
+            const canvas = document.getElementById('canvas-placar');
+            canvas.toBlob(async (blob) => {
+                if (!blob) return;
+                const file = new File([blob], 'placar-domino-cetens.png', { type: 'image/png' });
+
+                if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                    try {
+                        await navigator.share({
+                            title: 'Placar Dominó Cetens',
+                            text: 'Confira o placar do nosso jogo no Dominó Cetens!',
+                            files: [file]
+                        });
+                    } catch(e) {}
+                } else {
+                    const link = document.createElement('a');
+                    link.download = 'placar-domino-cetens.png';
+                    link.href = canvas.toDataURL();
+                    link.click();
+                }
+            });
+        }
+    </script>
+</body>
+</html>
